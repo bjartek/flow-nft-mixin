@@ -29,13 +29,14 @@ pub contract NonFungibleToken {
 
       }
 
+      //There should probably be a method on NFT to create a Mixin 
       pub fun mixin(_ mixin: @Mixin)  {
           log("mixing in".concat(" ").concat(mixin.type))
-
-
           let oldToken <- self.mixins[mixin.type] <- mixin
           destroy oldToken
       }
+
+      //There could be several more convenience methods to fetch information about mixins. Like get all descriptions aso
 
       pub fun extractData(_ type: String): AnyStruct{} {
           return self.mixins[type]?.data ?? panic("mixin type does not exist")
@@ -64,10 +65,10 @@ pub contract NonFungibleToken {
 
   pub resource Mixin {
 
-        //The type of the mixin
+        //The type of the mixin. Should start with address
         pub let type: String
 
-        //And url to the schema for the data
+        //And url to the schema for the data. So that if you have a struct implementing the schema you can downcast to that
         pub let schemaUrl: String?
 
         //A struct with data for the mixing, case this to a type that conform to the schema above
@@ -76,8 +77,10 @@ pub contract NonFungibleToken {
         //A text description for the mixing
         pub let description: String
 
-
+        //If your mixin contains another resource it can be represented here
         pub let resource: @AnyResource? 
+
+        //I was considering adding a HTML field here. In lots of use cases providing a semantic markup of your NFT could makes ton of sense
 
         init(type: String, data: AnyStruct{}, description: String, schemaUrl : String?, resource: @AnyResource?) {
             self.type=type
