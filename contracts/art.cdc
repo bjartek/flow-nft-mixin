@@ -18,7 +18,7 @@ pub contract ArtTrait {
       let art  = ArtData(
           name: name, artistName: artistName, artist: artist, url: url, description: description
       )
-      return <- create Art(artData: art)
+      return <- create Art(art)
     }
 
     pub struct ArtData {
@@ -53,7 +53,7 @@ pub contract ArtTrait {
             return "foo"
         }
 
-        init(artData: ArtData) {
+        init(_ artData: ArtData) {
             self.type = ArtTrait.type
             self.art = artData            
         }

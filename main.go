@@ -10,6 +10,7 @@ func main() {
 
 	gwtf.DeployContract("nft")
 	gwtf.DeployContract("art")
+	gwtf.DeployContract("signature")
 	gwtf.CreateAccount("artist")
 	gwtf.TransactionFromFile("mintArt").SignProposeAndPayAs("artist").Run()
 }
