@@ -153,59 +153,7 @@ pub contract NonFungibleToken {
         return <- newNFT
 	}
 
-
-    /*
-    
-    This is an example of an Art mixin fetching the url from url with a given 
-     */
-
-    pub fun createArtTrait(name: String, artistName: String, artist: Address, url: String, description: String) : @Art{
-      let type = self.account.address.toString().concat(".Art")
-      let art  = ArtData(
-          name: name, artistName: artistName, artist: artist, url: url, description: description
-      )
-      return <- create Art(type: type, artData: art)
-    }
-
-    pub struct ArtData {
-        pub let name: String
-        pub let artistName: String
-        pub let artist: Address
-        pub let url: String
-        pub let description: String
-
-         init(name: String, artistName: String, artist: Address, url: String, description: String) {
-            self.name = name
-            self.artistName=artistName 
-            self.artist = artist
-            self.url = url
-            self.description = description
-        }
-    }
-
-    pub resource Art: Trait {
-
-        pub let type: String 
-        pub let art: ArtData
-      
-        pub fun description(): String {
-            return self.art.name
-        }
-        pub fun data() : AnyStruct{}? {
-            return self.art
-        }
-
-        pub fun arty() : String {
-            return "foo"
-        }
-
-        init(type: String, artData: ArtData) {
-            self.type = type
-            self.art = artData            
-        }
-    }
-
-    //Example of another Trait
+     //Example of another Trait
     pub resource OriginalArtistCut: Trait {
         pub let type: String
  
@@ -232,8 +180,8 @@ pub contract NonFungibleToken {
 
         pub let receiver: Capability<&{FungibleToken.Receiver}>
 
-        init(type: String, cutPercentage: UFix64, receiver: Capability<&{FungibleToken.Receiver}>) {
-            self.type=type
+        init(cutPercentage: UFix64, receiver: Capability<&{FungibleToken.Receiver}>) {
+            self.type=NonFungibleToken.account.address.toString().concat(".OriginalArtistCut")
             self.cutPercentage=cutPercentage
             self.receiver=receiver
         }
@@ -242,7 +190,7 @@ pub contract NonFungibleToken {
     pub fun createOriginalArtistCut(cutPercentage: UFix64, receiver: Capability<&{FungibleToken.Receiver}>) : @OriginalArtistCut {
 
         let type = self.account.address.toString().concat(".OriginalArtistCut")
-        return <- create OriginalArtistCut(type: type, cutPercentage: cutPercentage, receiver: receiver )
+        return <- create OriginalArtistCut(cutPercentage: cutPercentage, receiver: receiver )
         
     }
  
