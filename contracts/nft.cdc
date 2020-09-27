@@ -7,6 +7,7 @@
 // It also includes a definition for the Minter resource,
 // which can be used by admins to mint new NFTs.
 
+import FungibleToken from 0xee82856bf20e2aa6
 
 pub contract NonFungibleToken {
 
@@ -21,7 +22,7 @@ pub contract NonFungibleToken {
 
       // The unique ID that differentiates each NFT
       pub let id: UInt64
-      pub let mixins: @{String:Mixin}
+      pub let mixins: @{String:AnyResource{Trait}}
       // Initialize both fields in the init function
       init(initID: UInt64) {
           self.id = initID
@@ -30,18 +31,21 @@ pub contract NonFungibleToken {
       }
 
       //There should probably be a method on NFT to create a Mixin 
-      pub fun mixin(_ mixin: @Mixin)  {
-          log("mixing in".concat(" ").concat(mixin.type))
-          let oldToken <- self.mixins[mixin.type] <- mixin
+      pub fun mixin(_ trait: @AnyResource{Trait})  {
+          log("mixing in".concat(" ").concat(trait.type))
+          let oldToken <- self.mixins[trait.type] <- trait
           destroy oldToken
       }
 
       //There could be several more convenience methods to fetch information about mixins. Like get all descriptions aso
 
-      pub fun extractData(_ type: String): AnyStruct{} {
-          return self.mixins[type]?.data ?? panic("mixin type does not exist")
+      pub fun borrowTrait(_ type: String): auth &AnyResource{Trait} {
+          return &self.mixins[type] as auth &AnyResource{Trait} 
       }
 
+      pub fun hasTrait(_ type: String) : Bool {
+          return self.mixins.keys.contains(type)
+      }
 
        destroy() {
           destroy self.mixins
@@ -60,41 +64,21 @@ pub contract NonFungibleToken {
 
       pub fun idExists(id: UInt64): Bool
       pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT 
-
   }
 
-  pub resource Mixin {
+  pub resource interface Trait {
 
-        //The type of the mixin. Should start with address
+        //The type of this trait. Should be on the form 0xAddress.ClassName
         pub let type: String
 
-        //And url to the schema for the data. So that if you have a struct implementing the schema you can downcast to that
-        pub let schemaUrl: String?
+        //Data about this trait that can be printed out to show what it is
+        //Not all traits need to implement this
+        pub fun data(): AnyStruct{}? 
 
-        //A struct with data for the mixing, case this to a type that conform to the schema above
-        pub let data: AnyStruct{}
-
-        //A text description for the mixing
-        pub let description: String
-
-        //If your mixin contains another resource it can be represented here
-        pub let resource: @AnyResource? 
-
-        //I was considering adding a HTML field here. In lots of use cases providing a semantic markup of your NFT could makes ton of sense
-
-        init(type: String, data: AnyStruct{}, description: String, schemaUrl : String?, resource: @AnyResource?) {
-            self.type=type
-            self.data = data
-            self.description=description
-            self.schemaUrl=schemaUrl
-            self.resource <- resource
-        }
-
-        destroy() {            
-           destroy self.resource
-        }
-        
+        //This has to return something, the most relevant of the three above
+        pub fun description() : String
   }
+
 
   // The definition of the Collection resource that
   // holds the NFTs that a user owns
@@ -175,49 +159,91 @@ pub contract NonFungibleToken {
     This is an example of an Art mixin fetching the url from url with a given 
      */
 
-    pub fun artMixin(name: String, artistName: String, artist: Address, url: String, description: String) : @Mixin{
-        let art  = Art(
-            name: name, artistName: artistName, artist: artist, url: url, description: description
-        )
-       let type = self.account.address.toString().concat(".Art")
-        return <- create Mixin(type: type, data: art, description: "", schemaUrl: nil, resource: nil )
+    pub fun createArtTrait(name: String, artistName: String, artist: Address, url: String, description: String) : @Art{
+      let type = self.account.address.toString().concat(".Art")
+      let art  = ArtData(
+          name: name, artistName: artistName, artist: artist, url: url, description: description
+      )
+      return <- create Art(type: type, artData: art)
     }
 
-    pub struct Art {
+    pub struct ArtData {
         pub let name: String
         pub let artistName: String
         pub let artist: Address
         pub let url: String
         pub let description: String
 
-        init(name: String, artistName: String, artist: Address, url: String, description: String) {
+         init(name: String, artistName: String, artist: Address, url: String, description: String) {
             self.name = name
             self.artistName=artistName 
             self.artist = artist
             self.url = url
-            self.description= description
+            self.description = description
         }
     }
 
-    /*
-        Another mixin where the orginal artist ask for a cut
-    
-    pub struct OriginalArtistCut {
+    pub resource Art: Trait {
+
+        pub let type: String 
+        pub let art: ArtData
+      
+        pub fun description(): String {
+            return self.art.name
+        }
+        pub fun data() : AnyStruct{}? {
+            return self.art
+        }
+
+        pub fun arty() : String {
+            return "foo"
+        }
+
+        init(type: String, artData: ArtData) {
+            self.type = type
+            self.art = artData            
+        }
+    }
+
+    //Example of another Trait
+    pub resource OriginalArtistCut: Trait {
+        pub let type: String
+ 
+        pub fun description() : String {
+            var owner= self.receiver.borrow()!.owner!.address.toString()
+            return "Original artist ".concat(owner).concat(" would like a ").concat(self.cutPercentage.toString()).concat(" cut")
+        }
+
+        pub fun data(): AnyStruct{}? {
+            return nil
+        }
+
+        pub fun claimRoyalty(totalAmount: UFix64, vault: @FungibleToken.Vault): @FungibleToken.Vault {
+                //Withdraw cuplace and put it in their vault
+            let amount=totalAmount*self.cutPercentage
+            let beneficiaryCut <- vault.withdraw(amount:amount)
+
+            let cutVault=self.receiver.borrow()!
+            cutVault.deposit(from: <- beneficiaryCut)
+            return <- vault
+        }
+
         pub let cutPercentage: UFix64
-        pub let capablity: Capability<&{FungibleToken.Receiver}>
 
-        init(cutPercentage: UFix64, capability: Capability<&{FungibleToken.Receiver}>) {
+        pub let receiver: Capability<&{FungibleToken.Receiver}>
+
+        init(type: String, cutPercentage: UFix64, receiver: Capability<&{FungibleToken.Receiver}>) {
+            self.type=type
             self.cutPercentage=cutPercentage
-            self.capablity=capability
+            self.receiver=receiver
         }
     }
 
-    pub fun originalArtistMixin(cutPercentage: UFix64, capability: Capability<&{FungibleToken.Receiver}>) : @Mixin {
-        let cut = OriginalArtistCut(cutPercentage: cutPercentage, capability: capability)
-        let type = self.account.address.toString().concat(".OriginalArtistCut")
+    pub fun createOriginalArtistCut(cutPercentage: UFix64, receiver: Capability<&{FungibleToken.Receiver}>) : @OriginalArtistCut {
 
-        return <- create Mixin(type: type, data: cut, description: "The original artist has kindly asked for a small cut of resale", schemaUrl: nil, resource: nil)
+        let type = self.account.address.toString().concat(".OriginalArtistCut")
+        return <- create OriginalArtistCut(type: type, cutPercentage: cutPercentage, receiver: receiver )
+        
     }
  
-     */
 }
