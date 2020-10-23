@@ -1,12 +1,4 @@
-all: demo
-
-.PHONY: demo
-demo:
-	go run ./demo/main.go
-
-.PHONY: script
-script:
-	go run ./script/main.go
+all: mixin
 
 .PHONY: emulator
 emulator:
@@ -14,4 +6,4 @@ emulator:
 
 .PHONY: mixin
 mixin:
-	go run ./mixin/main.go
+	go run ./main.go

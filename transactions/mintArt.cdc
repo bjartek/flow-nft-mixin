@@ -1,21 +1,17 @@
 import NonFungibleToken from 0x01cf0e2f2f715450
-
+import ArtTrait from 0x179b6b1cb6755e31
+import SignatureTrait from 0xf3fcd2c1a78f5eee
 
 
 // This transaction creates an empty NFT Collection in the signer's account
 transaction {
 
-
-
   prepare(account: AuthAccount) {
     // store an empty NFT Collection in account storage
 
-
-
-
     let nft <- NonFungibleToken.createNFT()
 
-    let artMixin <- NonFungibleToken.artMixin(
+    let artTrait <- ArtTrait.create(
         name: "An awesome art piece", 
         artistName: "John Doe", 
         artist: account.address,
@@ -23,19 +19,23 @@ transaction {
         description: "This is an description"
       )
 
-    log(&artMixin as &NonFungibleToken.Mixin)
+    log(artTrait.description())
 
-    nft.mixin(<- artMixin)
+    nft.mixin(<- artTrait)
 
- 
-    let data = nft.extractData("0x1cf0e2f2f715450.Art") 
-    log(data)
+    nft.mixin(<- SignatureTrait.create(name:"John Doe", address: account.address ))
 
+    if nft.hasTrait(ArtTrait.type) {
+        let art = nft.borrowTrait(ArtTrait.type) as? &ArtTrait.Art ?? panic("Could not borrow trait as Art")
+        log(art.data())
+        log(art.arty())
+    }
 
-    let art: NonFungibleToken.Art = data as? NonFungibleToken.Art  ?? panic("Can not cast to art")
-    log(art.name)
+    if nft.hasTrait(SignatureTrait.type) {
+        log(nft.borrowTrait(SignatureTrait.type).data())
+    }
 
-    log("Created an NFT with art mixin")
+    log("Created an NFT with art mixin and signature mixin")
     destroy nft
 
   }
